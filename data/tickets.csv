@@ -1,0 +1,31 @@
+ticket_id,customer,plan,subject,body,expected_category,expected_priority
+T-001,Brightwell Retail,Enterprise,Cannot log in after password reset,"Since this morning none of our 40 users can log in. The reset email arrives but the link says expired. Our store teams are blocked.",Access & Login,P1
+T-002,Kavo Dental,Starter,Invoice charged twice,"We were charged twice for October (two payments of 49 euro on our card). Please refund one.",Billing,P2
+T-003,Nordline Logistics,Business,Dashboard very slow,"The shipments dashboard takes more than 30 seconds to load since last week. It used to be instant.",Performance,P2
+T-004,Studio Vela,Starter,How do I export my data to Excel?,"I want to export the customer list to Excel for my accountant. Where is that option?",How-to,P4
+T-005,Mercator Finance,Enterprise,API returning 500 errors,"Our nightly sync via the REST API fails with HTTP 500 on the /orders endpoint since 02:00. Production reporting for the board is affected.",Integration,P1
+T-006,Green Leaf Cafe,Starter,Add dark mode please,"Would love a dark mode for the app, my staff use it in the evening.",Feature request,P4
+T-007,Brightwell Retail,Enterprise,SSO setup with Azure AD,"We want to connect single sign-on with Azure AD. Can you share the steps and what we need from our IT team?",How-to,P3
+T-008,Hollands Bouw,Business,Wrong VAT on invoice,"Our invoice shows 0% VAT but we are a Dutch company and need 21% for our bookkeeping. Please correct the invoice.",Billing,P3
+T-009,Nordline Logistics,Business,Report shows wrong totals,"The monthly revenue report shows 12,400 but the sum of the individual orders is 13,150. Which number is right?",Bug,P2
+T-010,Kavo Dental,Starter,User locked out,"One of my assistants entered the wrong password too many times and is now locked out. How do I unlock her?",Access & Login,P3
+T-011,Mercator Finance,Enterprise,Webhook not firing,"The order.created webhook stopped sending events to our endpoint yesterday. Nothing changed on our side.",Integration,P2
+T-012,Studio Vela,Starter,Cancel subscription,"I want to cancel my subscription at the end of this month. How do I do that?",Billing,P3
+T-013,Pier 9 Events,Business,Calendar sync duplicates,"Every event now appears twice in our Google Calendar after syncing.",Bug,P3
+T-014,Hollands Bouw,Business,Can we add more users?,"We are hiring 5 people. How do we add users and what does it cost?",Billing,P4
+T-015,Brightwell Retail,Enterprise,Data missing after import,"We imported 2,000 products from CSV yesterday. Only 1,400 appear. No error message was shown.",Bug,P2
+T-016,Green Leaf Cafe,Starter,App crashes on iPad,"The app closes immediately when I open the orders screen on my iPad. iPhone works fine.",Bug,P3
+T-017,Mercator Finance,Enterprise,Security questionnaire,"Our compliance team needs your SOC 2 report and answers to our vendor security questionnaire before renewal.",Account & Compliance,P3
+T-018,Pier 9 Events,Business,Slow search,"Searching for a customer takes 10 to 15 seconds. We have about 50,000 customers.",Performance,P3
+T-019,Nordline Logistics,Business,Two-factor codes not arriving,"Our users do not receive the SMS code for two-factor login. Some of them cannot work.",Access & Login,P2
+T-020,Kavo Dental,Starter,Change billing email,"Please send invoices to finance@kavodental.example instead of my personal email.",Billing,P4
+T-021,Studio Vela,Starter,Integration with Mailchimp?,"Do you integrate with Mailchimp so I can send newsletters to my customers?",Integration,P4
+T-022,Brightwell Retail,Enterprise,All stores offline,"The platform is completely down for all our 12 stores. Error page on every screen. We are losing sales right now.",Outage,P1
+T-023,Hollands Bouw,Business,Delete a project,"How can I permanently delete an old project and all its data?",How-to,P4
+T-024,Pier 9 Events,Business,Permission issue for manager,"Our event manager cannot see the finance tab even though we gave her the Manager role.",Access & Login,P3
+T-025,Mercator Finance,Enterprise,GDPR data deletion request,"A former customer requested deletion of all their personal data under GDPR. Please confirm how we do this within the legal deadline.",Account & Compliance,P2
+T-026,Green Leaf Cafe,Starter,Printer receipts cut off,"The receipts from our printer cut off the last line with the total amount.",Bug,P3
+T-027,Nordline Logistics,Business,Rate limit errors on API,"We receive HTTP 429 Too Many Requests when we sync more than 500 orders. What are the limits?",Integration,P3
+T-028,Studio Vela,Starter,Love the new update!,"Just wanted to say the new invoice design looks great. Thanks!",Feedback,P4
+T-029,Brightwell Retail,Enterprise,Suspicious login alerts,"We got alerts about logins from an unknown country on two admin accounts. Please help us check this urgently.",Security,P1
+T-030,Kavo Dental,Starter,Appointment reminders not sent,"Patients did not receive their SMS reminders today. We had 4 no-shows.",Bug,P2
