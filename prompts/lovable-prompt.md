@@ -44,9 +44,7 @@ Allowed values:
 
 ## Trigger the AI workflow
 
-Store the n8n webhook URL in a single config constant `N8N_TRIAGE_WEBHOOK_URL` (I will paste it in later).
-
-When a ticket is created: insert it into `tickets` with status 'new', then send a POST request to the webhook with JSON `{ "ticket_id": "<uuid>" }`. If the request fails, set status to 'failed' and show a toast. The n8n workflow will update the ticket row itself (status 'triaging', then 'awaiting_review' with all ai_* fields).
+When a ticket is created: insert it into `tickets` with status 'new', then invoke a backend (edge) function `triage-ticket` with `{ "ticket_id": "<uuid>" }`. That function sends the ticket and the knowledge base to the n8n webhook, waits for the AI result and saves it on the ticket (status 'awaiting_review'). See `lovable-followup-prompt.md` for the full specification; on error it sets status 'failed'.
 
 ## Pages
 

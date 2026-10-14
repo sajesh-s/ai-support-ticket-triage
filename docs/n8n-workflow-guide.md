@@ -1,52 +1,54 @@
 # n8n workflow: AI ticket triage
 
-The portal sends `{ "ticket_id": "<uuid>" }` to this workflow. The workflow reads the ticket, asks Claude to triage it using only the knowledge base, writes the result back to the database, and alerts the team for urgent tickets. The portal shows the update live.
+The portal (a Lovable Cloud backend function) sends the ticket plus the knowledge base to this workflow. n8n asks Claude to triage the ticket, **returns the result in the webhook response**, and alerts the team for urgent tickets. The portal saves the result and shows it live.
+
+n8n never touches the database. That's deliberate: Lovable Cloud doesn't expose database keys to outside tools, and it keeps the design simple and secure.
 
 ```
-Webhook -> Mark "triaging" -> Get ticket -> Get KB articles -> Build Claude request
-       -> Claude API -> Parse & validate -> Save AI result -> IF urgent -> Alert
+Portal backend function --POST ticket + KB--> Webhook -> Build Claude request -> Claude API
+                                                     -> Parse & validate -> Respond to Webhook
+                                                     -> IF urgent -> Alert team
+Portal backend function <--JSON result-- (saves it, status = awaiting_review)
 ```
 
 ## Before you start
 
-You need, from Lovable Cloud (Supabase):
-- **Project URL** (https://xxxx.supabase.co)
-- **Service role key** (secret: only ever put it in n8n credentials, never in the app or GitHub)
-
-And a **Claude API key** from console.anthropic.com.
+- A **Claude API key** from console.anthropic.com
+- A **shared secret**: any long random string (for example from a password manager). The portal sends it in a header so only your portal can call the workflow.
 
 In n8n, create two credentials:
-1. **Supabase API**: host = project URL, service role secret = service role key
-2. **Header Auth** named "Anthropic": name `x-api-key`, value = your Claude API key
+1. **Header Auth** named "Anthropic": name `x-api-key`, value = your Claude API key
+2. **Header Auth** named "Portal secret": name `x-webhook-secret`, value = your shared secret
+
+## What the portal sends
+
+```json
+{
+  "ticket_id": "uuid",
+  "customer_name": "Brightwell Retail",
+  "plan": "Enterprise",
+  "subject": "Cannot log in after password reset",
+  "body": "Since this morning none of our 40 users can log in...",
+  "kb_articles": [ { "id": "KB-01", "title": "...", "body": "..." } ]
+}
+```
 
 ## Nodes
 
 ### 1. Webhook
 - HTTP Method: POST
 - Path: `triage-ticket`
-- Respond: **Immediately** (the portal shouldn't wait for the AI)
-- Options → Allowed Origins (CORS): `*` (fine for a demo)
-- Copy the **Production URL** into `N8N_TRIAGE_WEBHOOK_URL` in Lovable, and activate the workflow.
+- Authentication: Header Auth → "Portal secret"
+- Respond: **Using 'Respond to Webhook' Node**
+- Copy the **Production URL** (not the Test URL) for the portal, and **activate** the workflow.
 
-### 2. Supabase: Update a row ("Mark triaging")
-- Table: `tickets`
-- Select condition: `id` equals `{{ $json.body.ticket_id }}`
-- Field: `status` = `triaging`
-
-### 3. Supabase: Get a row ("Get ticket")
-- Table: `tickets`, condition `id` equals `{{ $('Webhook').item.json.body.ticket_id }}`
-
-### 4. Supabase: Get many rows ("Get KB")
-- Table: `kb_articles`, Return All: on
-- Settings → **Execute Once**: on
-
-### 5. Code ("Build Claude request")
+### 2. Code ("Build Claude request")
 Mode: Run Once for All Items. Paste:
 
 ```javascript
-const t = $('Get ticket').first().json;
-const kb = $('Get KB').all()
-  .map(a => `[${a.json.id}] ${a.json.title}\n${a.json.body}`)
+const t = $('Webhook').first().json.body;
+const kb = (t.kb_articles || [])
+  .map(a => `[${a.id}] ${a.title}\n${a.body}`)
   .join('\n\n');
 
 const system = `You are a support triage assistant for Cloudnest, a B2B SaaS company.
@@ -63,7 +65,7 @@ Respond with JSON only:
 const user = `Knowledge base:\n${kb}\n\nTicket:\n- Customer: ${t.customer_name} (${t.plan} plan)\n- Subject: ${t.subject}\n- Message: ${t.body}`;
 
 return [{ json: {
-  ticket_id: t.id,
+  ticket_id: t.ticket_id,
   body: {
     model: 'claude-haiku-5-5',
     max_tokens: 800,
@@ -73,14 +75,14 @@ return [{ json: {
 }}];
 ```
 
-### 6. HTTP Request ("Claude API")
+### 3. HTTP Request ("Claude API")
 - Method: POST, URL: `https://api.anthropic.com/v1/messages`
-- Authentication: Generic → Header Auth → "Anthropic"
+- Authentication: Generic Credential Type → Header Auth → "Anthropic"
 - Send Headers: `anthropic-version` = `2023-06-01`
 - Send Body: JSON, Specify Body: Using JSON → `{{ JSON.stringify($json.body) }}`
 - Settings → Retry On Fail: on (2 tries)
 
-### 7. Code ("Parse & validate")
+### 4. Code ("Parse & validate")
 
 ```javascript
 const CATS = ['Access & Login','Billing','Bug','Performance','Integration','How-to',
@@ -110,26 +112,24 @@ return [{ json: {
 }}];
 ```
 
-### 8. Supabase: Update a row ("Save AI result")
-- Table `tickets`, condition `id` equals `{{ $json.ticket_id }}`
-- Fields: all `ai_*` fields from the previous node, plus `status` = `awaiting_review` and `triaged_at` = `{{ $now.toISO() }}`
-- For `ai_kb_articles` (an array column) use `{{ $json.ai_kb_articles }}`
+### 5. Respond to Webhook
+- Respond With: **First Incoming Item** (returns the JSON from step 4)
 
-### 9. IF ("Urgent?")
-- `{{ $('Parse & validate').item.json.ai_priority }}` equals `P1`
-- OR `{{ $('Parse & validate').item.json.ai_escalate_to }}` equals `Security`
+### 6. IF ("Urgent?"), connected after Respond to Webhook
+The workflow keeps running after it has responded, so the alert doesn't slow down the portal.
+- `{{ $json.ai_priority }}` equals `P1`
+- OR `{{ $json.ai_escalate_to }}` equals `Security`
 
-### 10. Gmail or Slack ("Alert team"), on the true branch
-- Message: `🚨 {{ $('Parse & validate').item.json.ai_priority }} ticket: {{ $('Get ticket').item.json.subject }} ({{ $('Get ticket').item.json.customer_name }}). Escalate to: {{ $('Parse & validate').item.json.ai_escalate_to }}`
+### 7. Gmail or Slack ("Alert team"), on the true branch
+- Message: `🚨 {{ $json.ai_priority }} ticket {{ $json.ticket_id }} needs attention. Escalate to: {{ $json.ai_escalate_to }}`
 
 ## Error handling
-Add an **Error Trigger** workflow (or connect node error outputs) that sets the ticket's `status` to `failed`, so a ticket never stays stuck in "triaging".
+If Claude fails or returns bad JSON, the workflow errors and the webhook returns an error status. The portal then marks the ticket "failed" and shows a Retry button.
 
 ## Testing
-1. Activate the workflow.
-2. In the portal, click **Simulate incoming ticket** a few times.
-3. Watch the agent console: the ticket appears, shows "AI triaging...", then fills in within a few seconds.
-4. Good first tests: T-001 (login outage, P1), T-022 (full outage, P1), T-029 (suspicious logins, Security), T-028 (feedback, P4).
+1. Test the workflow on its own first: click **Listen for test event** on the Webhook node and send a sample request (see `test-request.md`), or temporarily switch authentication off and use the portal with the Test URL.
+2. Activate the workflow, put the Production URL in the portal, and click **Simulate incoming ticket**.
+3. Good first tests: T-001 (login outage, P1), T-022 (full outage, P1), T-029 (suspicious logins, Security), T-028 (feedback, P4).
 
 ## Before the n8n Cloud trial ends
 Export the workflow (⋯ → Download) and save it as `workflow/triage-workflow.json` in the repo. Credentials are not included in the export.
