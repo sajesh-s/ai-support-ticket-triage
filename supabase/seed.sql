@@ -1,6 +1,8 @@
 -- Seed data for the Cloudnest support portal (synthetic)
 -- Run after Lovable has created the tables.
 
+delete from kb_articles;
+
 insert into kb_articles (id, title, body) values
   ('KB-01', 'Password reset link expired', 'Reset links are valid for 30 minutes and only the most recent link works. Ask the user to request a new link and open it within 30 minutes, in a private browser window. If many users at one company are affected at once, escalate to engineering as a possible incident.'),
   ('KB-02', 'Unlocking a locked-out user', 'After 5 failed attempts an account is locked for 15 minutes. An admin can unlock it immediately under Settings > Users > select user > Unlock account.'),
@@ -24,7 +26,7 @@ insert into kb_articles (id, title, body) values
   ('KB-20', 'GDPR deletion requests', 'Admins can delete a person''s data under Customers > select customer > Delete personal data. Deletion is completed within 30 days, within the GDPR deadline. Support can confirm completion in writing.'),
   ('KB-21', 'Suspicious logins', 'Treat as a security incident. Advise the admin to reset passwords for affected accounts and enforce two-factor login immediately. Escalate to the Security team right away.'),
   ('KB-22', 'Outages', 'Check status.cloudnest.example. For a full outage affecting a customer, escalate immediately as a P1 incident and update the customer every 30 minutes.')
-on conflict (id) do nothing;
+on conflict (id) do update set title = excluded.title, body = excluded.body;
 
 insert into sample_tickets (id, customer, plan, subject, body, expected_category, expected_priority) values
   ('T-001', 'Brightwell Retail', 'Enterprise', 'Cannot log in after password reset', 'Since this morning none of our 40 users can log in. The reset email arrives but the link says expired. Our store teams are blocked.', 'Access & Login', 'P1'),
