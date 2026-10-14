@@ -12,9 +12,16 @@ In a busy support team, engineers spend a large share of their time reading, sor
 
 ## The solution
 
+A working proof of concept: a support portal (built with Lovable) connected to an AI triage workflow (n8n + Claude).
+
 ```
-New ticket -> AI triage (Claude) -> category + priority + KB article + draft reply
-           -> log to sheet -> P1/security alert to team -> human approves reply
+Customer submits ticket (portal)
+  -> n8n webhook
+  -> Claude: category, priority, KB articles, draft reply, escalation, confidence
+  -> result saved to the database -> appears live in the agent console
+  -> P1 / security tickets alert the team
+Support engineer reviews -> corrects category, priority or reply if needed -> approves & sends
+  -> every correction is recorded -> Insights page shows how often the AI was right
 ```
 
 - **Classification** into 11 categories and priorities P1 to P4
@@ -47,9 +54,10 @@ _To be filled in after testing on the 30 sample tickets in `data/tickets.csv`._
 |---|---|
 | `data/` | 30 synthetic tickets with expected labels |
 | `knowledge-base/` | 22 fictional help articles |
-| `prompts/` | The triage prompt |
+| `prompts/` | The triage prompt and the Lovable build prompt |
+| `supabase/` | Seed data for the knowledge base and sample tickets |
 | `workflow/` | Exported n8n workflow (JSON) |
-| `docs/` | Screenshots and demo |
+| `docs/` | n8n build guide, screenshots and demo |
 
 ## About me
 
