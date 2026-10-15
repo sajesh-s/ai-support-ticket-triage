@@ -1,9 +1,9 @@
 # Test the n8n workflow without the portal
 
-With the Webhook node listening for a test event (or the workflow active), run this in a terminal. Replace the URL and secret.
+With the workflow published (Production URL), or right after clicking **Execute workflow** on the canvas (Test URL), run this in a terminal. Replace the URL and secret.
 
 ```bash
-curl -X POST "https://YOUR-N8N.app.n8n.cloud/webhook-test/triage-ticket" \
+curl -X POST "https://YOUR-N8N.app.n8n.cloud/webhook/triage-ticket" \
   -H "Content-Type: application/json" \
   -H "x-webhook-secret: YOUR_SECRET" \
   -d '{

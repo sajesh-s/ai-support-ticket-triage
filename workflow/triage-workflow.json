@@ -1,0 +1,228 @@
+{
+  "name": "AI Support Ticket Triage",
+  "nodes": [
+    {
+      "id": "b133d3c5-e252-46e3-9ba4-a7e16224a588",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "triage-ticket",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "edbb56db-6a61-4020-9eb7-8358939549db",
+      "name": "Build Claude request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const t = $('Webhook').first().json.body;\nconst kb = (t.kb_articles || [])\n  .map(a => `[${a.id}] ${a.title}\\n${a.body}`)\n  .join('\\n\\n');\n\nconst system = `You are a support triage assistant for Cloudnest, a B2B SaaS company.\nFor each ticket:\n1. Category: exactly one of Access & Login, Billing, Bug, Performance, Integration, How-to, Feature request, Account & Compliance, Security, Outage, Feedback.\n2. Priority: P1 = outage, security incident, or many users fully blocked. P2 = important function broken or financial/legal impact. P3 = single user affected, or a question needing a specific action. P4 = general question, feature request or feedback. Enterprise customers get one level higher only if the issue blocks their work.\n3. Pick the most relevant knowledge-base article ids.\n4. Draft a short, friendly reply (max 120 words) based ONLY on the knowledge base. If it doesn't answer the question, say a specialist will follow up. Never invent features or prices.\n5. Escalation: Engineering, Security, Billing, Account or None.\n6. Confidence from 0 to 1.\n7. Keep \"reasoning\" to at most 2 short sentences.\nRespond with JSON only:\n{\"category\":\"\",\"priority\":\"\",\"kb_articles\":[\"\"],\"escalate_to\":\"\",\"confidence\":0.0,\"reasoning\":\"\",\"draft_reply\":\"\"}`;\n\nconst user = `Knowledge base:\\n${kb}\\n\\nTicket:\\n- Customer: ${t.customer_name} (${t.plan} plan)\\n- Subject: ${t.subject}\\n- Message: ${t.body}`;\n\nreturn [{ json: {\n  ticket_id: t.ticket_id,\n  body: {\n    model: 'claude-haiku-5-5',\n    max_tokens: 2500,\n    system,\n    messages: [{ role: 'user', content: user }]\n  }\n}}];\n"
+      }
+    },
+    {
+      "id": "520932d3-d849-4d37-954f-58e6d35f6819",
+      "name": "Claude API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "b17fbd19-0e2d-480b-a523-3636deab1eb1",
+      "name": "Parse & validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const CATS = ['Access & Login','Billing','Bug','Performance','Integration','How-to',\n  'Feature request','Account & Compliance','Security','Outage','Feedback'];\nconst PRIOS = ['P1','P2','P3','P4'];\nconst ESC = ['None','Engineering','Security','Billing','Account'];\n\n// Read Claude's answer, whatever shape the previous node returns it in\nconst res = $input.first().json;\nconst fromBlocks = blocks => blocks.filter(b => b && b.type === 'text').map(b => b.text).join('');\nlet text = '';\nif (Array.isArray(res.content)) text = fromBlocks(res.content);\nelse if (typeof res.content === 'string') text = res.content;\nelse if (typeof res.text === 'string') text = res.text;\nelse if (typeof res.data === 'string') {\n  try { text = fromBlocks(JSON.parse(res.data).content || []); } catch (e) { text = res.data; }\n}\n\nif (res.stop_reason === 'max_tokens') {\n  throw new Error('Claude answer was cut off: increase max_tokens in \"Build Claude request\".');\n}\nconst match = text.match(/\\{[\\s\\S]*\\}/);\nif (!match) {\n  throw new Error('No JSON found in Claude answer. Fields received: ' + Object.keys(res).join(', ') + ' | text: ' + text.slice(0, 200));\n}\nlet r;\ntry { r = JSON.parse(match[0]); } catch (e) {\n  throw new Error('Claude returned broken JSON: ' + text.slice(0, 300));\n}\n\nconst valid = CATS.includes(r.category) && PRIOS.includes(r.priority) && ESC.includes(r.escalate_to);\n\nreturn [{ json: {\n  ticket_id: $('Build Claude request').first().json.ticket_id,\n  ai_category: CATS.includes(r.category) ? r.category : 'How-to',\n  ai_priority: PRIOS.includes(r.priority) ? r.priority : 'P3',\n  ai_escalate_to: ESC.includes(r.escalate_to) ? r.escalate_to : 'None',\n  ai_kb_articles: Array.isArray(r.kb_articles) ? r.kb_articles : [],\n  // an invalid answer is forced below the 0.7 review threshold\n  ai_confidence: valid ? Number(r.confidence) || 0 : 0.3,\n  ai_reasoning: r.reasoning || '',\n  ai_draft_reply: r.draft_reply || '',\n}}];\n"
+      }
+    },
+    {
+      "id": "bc8f8a43-5c67-42d3-9958-e72c6eba0513",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "00a0dcb7-49cf-421b-9796-c25e365cb048",
+      "name": "Urgent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "fb34a8b2-b95c-43d3-8a25-b071fbbaf0b3",
+              "leftValue": "={{ $json.ai_priority }}",
+              "rightValue": "P1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "0c2e5ff3-f0f6-4a5d-99d8-3cfcdfe77f13",
+              "leftValue": "={{ $json.ai_escalate_to }}",
+              "rightValue": "Security",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0391dfdf-3661-4af8-aaa1-c83e1952d5a8",
+      "name": "Alert team (replace with Gmail or Slack)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -100
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build Claude request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Claude request": {
+      "main": [
+        [
+          {
+            "node": "Claude API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API": {
+      "main": [
+        [
+          {
+            "node": "Parse & validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & validate": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Urgent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Urgent?": {
+      "main": [
+        [
+          {
+            "node": "Alert team (replace with Gmail or Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
