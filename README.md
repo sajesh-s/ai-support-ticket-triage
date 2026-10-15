@@ -21,6 +21,7 @@ In a busy support team, engineers spend a large share of their time reading, sor
 5. P1 and security tickets **alert the team** straight away.
 6. A support engineer reviews the suggestion, corrects the category, priority or reply where needed, and approves it. **Nothing is sent without human approval.**
 7. Every correction is recorded with a reason, and the **Insights** page shows how often the AI was right.
+8. A **Knowledge base** page lists every help article the AI may use, so the engineer can check each suggestion against its source.
 
 ## Architecture
 
@@ -63,7 +64,7 @@ What I learned and changed along the way is in [`docs/prompt-changelog.md`](docs
 ## Responsible AI
 
 - **Human in the loop:** the AI only drafts; an engineer approves every reply.
-- **Grounded answers:** replies may only use the approved help articles. If they don't cover the question, the reply says a specialist will follow up.
+- **Grounded answers:** replies may only use the approved help articles, and each suggestion names the articles it used, which the engineer can open on the Knowledge base page. If the articles don't cover the question, the reply says a specialist will follow up.
 - **Low confidence is flagged:** below 0.7 the console shows a warning to review carefully.
 - **Feedback loop:** every correction is recorded with a reason, which drives prompt improvements.
 - **Data protection:** synthetic data only. In production, personal data would need a data processing agreement and GDPR-compliant handling.
