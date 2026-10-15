@@ -78,5 +78,10 @@ From tickets with status 'sent':
 - **Evaluation**: for tickets created from sample_tickets, compare ai_category and ai_priority with the expected values; show accuracy percentages and a table of mismatches
 - "Export corrections (CSV)": subject, AI values, final values, reasons, comment
 
+### 4. Knowledge base (/kb)
+- All rows from kb_articles as cards: id badge, title, full text. Subtitle: "<n> articles — the AI receives this full list with every triage call and references articles by ID in its suggestion."
+- Search box filtering on id, title and text.
+- Each article has its own anchor (/kb#KB-01), so the article chips in the agent console can link straight to it.
+
 ## Design
-Clean, professional SaaS look; light theme; neutral greys with a teal accent. Top nav: Customer portal · Agent console · Insights. Footer on every page: "Demo with synthetic data. AI drafts are always reviewed by a human before sending."
+Clean, professional SaaS look; light theme; neutral greys with a teal accent. Top nav: Customer portal · Agent console · Insights · Knowledge base. Footer on every page: "Demo with synthetic data. AI drafts are always reviewed by a human before sending."
