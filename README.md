@@ -4,7 +4,7 @@ A working proof of concept: AI triages incoming support tickets, and a support e
 
 Built with **Lovable** (support portal), **n8n** (workflow) and **Claude** (AI). Demo project with synthetic data for a fictional SaaS company, "Cloudnest".
 
-> 🎥 Demo video: _add link_ · 🌐 Live portal: _add link_
+> 🎥 **[Watch the 4-minute demo on YouTube](https://youtu.be/NAt9LSVuf40)**
 
 ![Agent console](docs/screenshots/agent-console.png)
 
